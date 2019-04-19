@@ -36,7 +36,8 @@ AudioPcmGrab::AudioPcmGrab(int src_sample_rate, int channel)
         fwrite(&default_pcmwavhdr, sizeof(default_pcmwavhdr) ,1, m_fp);
 #endif
 
-    m_fifo = std::make_shared<AudioFifo>(m_channels, 2);
+    std::unique_ptr<AudioFifo> pfifo(new AudioFifo(m_channels, 2));
+    m_fifo = std::move(pfifo);
     init();
 }
 
@@ -146,7 +147,8 @@ void AudioPcmGrab::grabTask()
                 default_pcmwavhdr.data_size += size;//修正pcm数据的大小
             }
 #endif
-            m_fifo->AddSamples(m_buffer, m_frames);
+            std::unique_ptr<AudioFifo> &audiofifo = m_fifo;
+            audiofifo->AddSamples(m_buffer, m_frames);
         }
     }
 
@@ -174,18 +176,18 @@ void AudioPcmGrab::retrieveTask()
 
     int numSamples;
     int numSamplesRead;
-
+    std::unique_ptr<AudioFifo> &audiofifo = m_fifo;
     while (!m_retrieveTaskEnd) {
-        std::unique_lock<std::mutex> lck(m_fifo->m_fifo_mt);
+        std::unique_lock<std::mutex> lck(audiofifo->m_fifo_mt);
 
-        m_fifo->m_fifo_con.wait_for(lck, std::chrono::milliseconds(20));
-        if (m_fifo->GetNumSamples() >= src_frame_size) {
+        audiofifo->m_fifo_con.wait_for(lck, std::chrono::milliseconds(20));
+        if (audiofifo->GetNumSamples() >= src_frame_size) {
             if (src_frame_size != 0) {
                 // must encode exactly frame_szie samples each time
                 numSamples = src_frame_size;
             } else {
                 // can encode any number of samples
-                numSamples = m_fifo->GetNumSamples();
+                numSamples = audiofifo->GetNumSamples();
             }
 
 
@@ -198,7 +200,7 @@ void AudioPcmGrab::retrieveTask()
             std::shared_ptr<grabData> data(new grabData(new char[size], size));
             data->auto_delete_data = true;
 
-            numSamplesRead = m_fifo->GetSamples((char *) data->data, numSamples);
+            numSamplesRead = audiofifo->GetSamples((char *) data->data, numSamples);
             if (numSamplesRead != numSamples) {
                 fprintf(stdout, "Error: numSamplesRead != numSamples");
             }

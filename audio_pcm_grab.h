@@ -69,7 +69,7 @@ private:
     std::atomic<bool> m_retrieveTaskEnd;
     std::thread m_retrieveTask;
 
-    std::shared_ptr<AudioFifo> m_fifo;
+    std::unique_ptr<AudioFifo> m_fifo;
     std::shared_ptr<audioOpusEncode> m_encoder;
 
 };
