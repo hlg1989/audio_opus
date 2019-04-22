@@ -102,18 +102,6 @@ bool AudioPcmGrab::start()
 
 bool AudioPcmGrab::stop()
 {
-
-    m_retrieveTaskEnd = true;
-    if (m_retrieveTask.joinable()) {
-        try {
-            m_retrieveTask.join();
-        }
-        catch (std::exception &e) {
-            fprintf(stderr, "m_retrieveTask join failed, %s", e.what());
-        }
-    }
-
-    fprintf(stderr, "m_retrieveTask has stopped.\n");
     m_grabTaskEnd = true;
 
     if (m_grabTask.joinable()) {
@@ -125,8 +113,19 @@ bool AudioPcmGrab::stop()
         }
     }
 
-    fprintf(stderr, "m_grabTask has stopped.\n");
+    //fprintf(stderr, "m_grabTask has stopped.\n");
 
+    m_retrieveTaskEnd = true;
+    if (m_retrieveTask.joinable()) {
+        try {
+            m_retrieveTask.join();
+        }
+        catch (std::exception &e) {
+            fprintf(stderr, "m_retrieveTask join failed, %s", e.what());
+        }
+    }
+
+    //fprintf(stderr, "m_retrieveTask has stopped.\n");
 
     return true;
 }
@@ -165,6 +164,7 @@ void AudioPcmGrab::grabTask()
     if(m_fp) {
         fseek(m_fp, 4, 0);
         fwrite(&default_pcmwavhdr.size_8, sizeof(default_pcmwavhdr.size_8), 1, m_fp);
+        //printf("grab_loopback frame numbers: %d\n", default_pcmwavhdr.data_size / 4 / 882);
         fseek(m_fp, 40, 0);
         fwrite(&default_pcmwavhdr.data_size, sizeof(default_pcmwavhdr.data_size), 1, m_fp);
         fclose(m_fp);
@@ -187,10 +187,7 @@ void AudioPcmGrab::retrieveTask()
     while (!m_retrieveTaskEnd) {
         std::unique_lock<std::mutex> lck(audiofifo->m_fifo_mt);
 
-        if(audiofifo->m_fifo_con.wait_for(lck, std::chrono::milliseconds(10)) == std::cv_status::timeout) {
-            continue;
-        }
-        //audiofifo->m_fifo_con.wait_for(lck, std::chrono::milliseconds(20));
+        audiofifo->m_fifo_con.wait_for(lck, std::chrono::milliseconds(10));
         if (audiofifo->GetNumSamples() >= src_frame_size) {
             if (src_frame_size != 0) {
                 // must encode exactly frame_szie samples each time

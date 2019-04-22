@@ -183,7 +183,6 @@ bool audioOpusEncode::encode_audio_frame(AVFrame *frame, int *got_packet) {
     init_packet(m_pkt);
 
 
-
     if (frame) {
 
         frame->pts = m_audio_st.samples_count;
@@ -283,6 +282,27 @@ int audioOpusEncode::encode_fini()
 
     }
 
+    while (true) {
+        m_pkt->data = NULL;
+        m_pkt->size = 0;
+        av_init_packet(m_pkt);
+        int ret = 0;
+        int got_packet = 0;
+        ret = avcodec_encode_audio2(m_codec_context, m_pkt, NULL, &got_packet);
+        av_frame_free(NULL);
+        if (ret < 0)
+            break;
+        if (!got_packet){
+            ret=0;
+            break;
+        }
+        //printf("Flush Encoder: Succeed to encode 1 frame!\tsize:%5d\n",m_pkt->size);
+        av_write_frame(m_format_context, m_pkt);
+        if (ret < 0)
+            break;
+    }
+
+    //printf("encode loopback frame count: %d\n", m_audio_frames_count);
 
 #ifdef DUMP_OUTPUT
     av_write_trailer(m_format_context);

@@ -20,12 +20,14 @@ int main() {
     audio_encoder->start();
     audio_grabber->start();
 
-    std::this_thread::sleep_for(std::chrono::seconds(60));
+    std::this_thread::sleep_for(std::chrono::seconds(30));
     fprintf(stderr, "~~~ stop process: end to encode and grab ~~~.\n");
-    audio_encoder->stop();
+    //audio_encoder->stop();
     audio_grabber->stop();
+    audio_encoder->stop();
 
 
+    fprintf(stderr, "~~~ process exit ~~~.\n");
 
     return 0;
 }

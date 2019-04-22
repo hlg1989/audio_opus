@@ -106,4 +106,6 @@ int AudioFifo::GetCurSamples()
     if (m_numSamples >= AUDIO_NUM_SAMPLES) {
         m_fifo_con.notify_one();
     }
+
+	return m_numSamples;
 }
