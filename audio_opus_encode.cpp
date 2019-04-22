@@ -5,7 +5,7 @@
 #include <chrono>
 #include <thread>
 #include <memory>
-//#define DUMP_OUTPUT
+#define DUMP_OUTPUT
 
 audioOpusEncode::audioOpusEncode(int src_sample_rate, int audio_bit_rate)
     : audioEncoderFFmpeg(src_sample_rate, audio_bit_rate)
@@ -32,7 +32,7 @@ int audioOpusEncode::encode_init()
 
 #ifdef DUMP_OUTPUT
     char audioFileName[256];
-    sprintf(audioFileName, "%s_%s.opus", "audio", m_avd_name.c_str());
+    sprintf(audioFileName, "%s_%s.opus", "encode", "loopback");
     AVIOContext *io_context = NULL;
     int ret = avio_open(&io_context, audioFileName, AVIO_FLAG_WRITE);
     if (ret < 0) {

@@ -1,6 +1,7 @@
 #include <string>
 #include "audio_pcm_grab.h"
 #include "generic.h"
+#include <condition_variable>
 
 #define ENABLE_PCM_FILE 1
 
@@ -68,6 +69,7 @@ void AudioPcmGrab::init()
     snd_pcm_hw_params_set_rate_near(m_handle, m_params, &m_samplerate, &dir);
 
     snd_pcm_hw_params_set_period_size_near(m_handle, m_params, &m_frames, &dir);
+    //snd_pcm_hw_params_set_period_size(m_handle, m_params, m_frames, dir);
 
     rc = snd_pcm_hw_params(m_handle, m_params);
     if(rc < 0){
@@ -107,10 +109,11 @@ bool AudioPcmGrab::stop()
             m_retrieveTask.join();
         }
         catch (std::exception &e) {
-            fprintf(stderr, "m_retrieveTask join failed, {}", e.what());
+            fprintf(stderr, "m_retrieveTask join failed, %s", e.what());
         }
     }
 
+    fprintf(stderr, "m_retrieveTask has stopped.\n");
     m_grabTaskEnd = true;
 
     if (m_grabTask.joinable()) {
@@ -118,9 +121,12 @@ bool AudioPcmGrab::stop()
             m_grabTask.join();
         }
         catch (std::exception &e) {
-            fprintf(stderr, "m_grabTask join failed, {}", e.what());
+            fprintf(stderr, "m_grabTask join failed, %s", e.what());
         }
     }
+
+    fprintf(stderr, "m_grabTask has stopped.\n");
+
 
     return true;
 }
@@ -137,6 +143,7 @@ void AudioPcmGrab::grabTask()
             fprintf(stderr, "error from read: %s\n", snd_strerror(rc));
         }else if(rc != (int)m_frames){
             fprintf(stderr, "short read, read %d frames\n", rc);
+            continue;
         }
 
         {
@@ -180,7 +187,10 @@ void AudioPcmGrab::retrieveTask()
     while (!m_retrieveTaskEnd) {
         std::unique_lock<std::mutex> lck(audiofifo->m_fifo_mt);
 
-        audiofifo->m_fifo_con.wait_for(lck, std::chrono::milliseconds(20));
+        if(audiofifo->m_fifo_con.wait_for(lck, std::chrono::milliseconds(10)) == std::cv_status::timeout) {
+            continue;
+        }
+        //audiofifo->m_fifo_con.wait_for(lck, std::chrono::milliseconds(20));
         if (audiofifo->GetNumSamples() >= src_frame_size) {
             if (src_frame_size != 0) {
                 // must encode exactly frame_szie samples each time
